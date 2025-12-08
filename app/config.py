@@ -5,8 +5,14 @@ Modifica i valori qui sotto per personalizzare il comportamento del bot.
 
 BOT_TOKEN = "INSERISCI_QUI_IL_TUO_TOKEN_TELEGRAM"
 DOWNLOAD_DIR = "/downloads"
-MAX_FILE_SIZE_MB = 45
+MAX_FILE_SIZE_MB = 50
 LOG_LEVEL = "INFO"
+
+# Abilita l'uso di un'istanza self-hosted di Telegram Bot API per inviare file fino a 2 GB
+TELEGRAM_BOT_API_ENABLED = False
+TELEGRAM_BOT_API_BASE_URL = "http://127.0.0.1:8081/bot"
+TELEGRAM_BOT_API_FILE_URL = "http://127.0.0.1:8081/file/bot"
+TELEGRAM_BOT_API_MAX_FILE_SIZE_MB = 2000
 
 # Controlla se eliminare i file locali dopo l'invio su Telegram
 DELETE_AFTER_SEND = False
@@ -36,3 +42,17 @@ ERROR_MESSAGE = (
 FILE_TOO_LARGE_MESSAGE = (
     "❌ Il file scaricato supera il limite di {max_mb} MB e non può essere inviato."
 )
+
+FILE_TOO_LARGE_BOT_API_DISABLED = (
+    "✅ Ho scaricato il file (circa {size_gb:.2f} GB), ma non posso caricarlo perché "
+    "il limite dell'API ufficiale è {max_mb} MB. Abilita una Telegram Bot API self-hosted "
+    "per inviare file fino a 2 GB."
+)
+
+
+def active_upload_limit_mb() -> int:
+    """Restituisce il limite massimo di upload attualmente configurato."""
+
+    if TELEGRAM_BOT_API_ENABLED:
+        return TELEGRAM_BOT_API_MAX_FILE_SIZE_MB
+    return MAX_FILE_SIZE_MB
