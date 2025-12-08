@@ -33,7 +33,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(config.UNAUTHORIZED_MESSAGE)
         return
 
-    message = config.WELCOME_MESSAGE.format(max_mb=config.MAX_FILE_SIZE_MB)
+    message = config.WELCOME_MESSAGE.format(max_mb=config.active_upload_limit_mb())
     await update.message.reply_text(message)
 
 
@@ -72,17 +72,25 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         size_mb = file_size_mb(video_path)
-        if size_mb > config.MAX_FILE_SIZE_MB:
-            await update.message.reply_text(
-                config.FILE_TOO_LARGE_MESSAGE.format(max_mb=config.MAX_FILE_SIZE_MB)
-            )
+        max_upload_mb = config.active_upload_limit_mb()
+        if size_mb > max_upload_mb:
+            if config.TELEGRAM_BOT_API_ENABLED:
+                await update.message.reply_text(
+                    config.FILE_TOO_LARGE_MESSAGE.format(max_mb=max_upload_mb)
+                )
+                detail = f"{size_mb:.1f} MB (> {max_upload_mb} MB con Bot API self-hosted)"
+            else:
+                await update.message.reply_text(
+                    config.FILE_TOO_LARGE_BOT_API_DISABLED.format(
+                        size_gb=size_mb / 1024, max_mb=max_upload_mb
+                    )
+                )
+                detail = f"{size_mb:.1f} MB scaricati, limite {max_upload_mb} MB"
             if config.DELETE_AFTER_SEND:
                 cleanup_file(video_path)
             else:
                 logger.info("File conservato perché DELETE_AFTER_SEND=False: %s", video_path)
-            await tracker.update(
-                entry_id, status="troppo grande", detail=f"{size_mb:.1f} MB"
-            )
+            await tracker.update(entry_id, status="troppo grande", detail=detail)
             return
 
         caption = f"Ecco il tuo video (circa {size_mb:.1f} MB)"

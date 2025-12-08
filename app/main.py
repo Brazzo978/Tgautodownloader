@@ -26,7 +26,14 @@ def setup_logging() -> None:
 
 
 async def run_bot() -> None:
-    application = ApplicationBuilder().token(config.BOT_TOKEN).build()
+    builder = ApplicationBuilder().token(config.BOT_TOKEN)
+
+    if config.TELEGRAM_BOT_API_ENABLED:
+        builder = builder.base_url(config.TELEGRAM_BOT_API_BASE_URL).base_file_url(
+            config.TELEGRAM_BOT_API_FILE_URL
+        )
+
+    application = builder.build()
     application.add_handler(CommandHandler("start", handle_start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 

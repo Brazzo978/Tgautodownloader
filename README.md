@@ -9,6 +9,7 @@ Bot Telegram Docker-friendly per scaricare video da link (YouTube, Instagram, Ti
    - Incolla il tuo `BOT_TOKEN` di Telegram.
    - Metti il tuo ID Telegram in `ALLOWED_USER_IDS` (es. `[123456789]`). Solo questi ID potranno usare il bot.
    - (Opzionale) regola `DOWNLOAD_DIR`, `MAX_FILE_SIZE_MB` e la porta web `WEB_APP_PORT`.
+   - (Opzionale) abilita `TELEGRAM_BOT_API_ENABLED` e imposta `TELEGRAM_BOT_API_BASE_URL`/`TELEGRAM_BOT_API_FILE_URL` se vuoi usare un server Telegram Bot API self-hosted per inviare file fino a 2 GB.
    - (Opzionale) imposta `DELETE_AFTER_SEND` a `True` se vuoi cancellare automaticamente i file locali dopo l'invio.
 4. Scegli come avviarlo:
    - **Locale:** `pip install -r requirements.txt` poi `python -m app.main`.
@@ -26,7 +27,8 @@ Bot Telegram Docker-friendly per scaricare video da link (YouTube, Instagram, Ti
    - `ALLOWED_USER_IDS = [123456789]` → metti il tuo ID (puoi aggiungere altri separati da virgola).
 2. Se vuoi cambiare cartella download o porta web, modifica `DOWNLOAD_DIR` e `WEB_APP_PORT` (di default la cartella è `/downloads`).
 3. Per controllare se i file scaricati vanno cancellati dopo l'invio, regola `DELETE_AFTER_SEND` (di default è `False`).
-4. Salva il file. Non servono `.env` o variabili ambiente: tutto è in `config.py`.
+4. (Opzionale) Per inviare file fino a 2 GB abilita `TELEGRAM_BOT_API_ENABLED = True` e indica le URL del tuo server Bot API (`TELEGRAM_BOT_API_BASE_URL` e `TELEGRAM_BOT_API_FILE_URL`).
+5. Salva il file. Non servono `.env` o variabili ambiente: tutto è in `config.py`.
 
 ### Avvio in locale (senza Docker)
 ```bash
@@ -57,8 +59,8 @@ Il file `docker-compose.yml` monta `./downloads` sulla cartella del container `/
 1. Apri il tuo bot su Telegram e manda `/start` (solo gli ID in whitelist ricevono risposta).
 2. Invia un link a un video (YouTube/Instagram/TikTok/X/Facebook ecc.).
 3. Il bot risponde "Sto scaricando il video" e poi:
-   - Se il file è entro `MAX_FILE_SIZE_MB`, ricevi il video (o un documento se l'invio video fallisce).
-   - Se supera il limite, ricevi un messaggio di file troppo grande.
+   - Se il file è entro il limite attivo (50 MB con l'API ufficiale, ~2 GB con Bot API self-hosted), ricevi il video (o un documento se l'invio video fallisce).
+   - Se supera il limite, ricevi un messaggio di file troppo grande. Se l'API self-hosted non è configurata, il bot ti dirà che il file è stato scaricato completamente ma non può caricarlo per il limite da 50 MB.
 4. Se `DELETE_AFTER_SEND` è `True`, i file scaricati vengono eliminati dopo l'invio; con `False` rimangono nella cartella download.
 
 ## 4. Web GUI locale
@@ -78,5 +80,29 @@ Il file `docker-compose.yml` monta `./downloads` sulla cartella del container `/
 - Dipendenze principali: `python-telegram-bot`, `yt-dlp`, `fastapi`, `uvicorn` (vedi `requirements.txt`).
 - Entrypoint: `python -m app.main` (avvia bot e web GUI insieme).
 - Configurazione unica in `app/config.py` (nessun `.env` o variabili ambiente).
+
+## 7. Come abilitare Telegram Bot API self-hosted (upload fino a 2 GB)
+La Telegram Bot API ufficiale consente upload fino a 50 MB. Se vuoi spedire file più grandi (fino a circa 2 GB) devi far girare un'istanza self-hosted del server Bot API e puntare il bot verso di essa.
+
+### Avvio rapido con Docker
+```bash
+docker run --name telegram-bot-api --rm -p 8081:8081 \
+  -v telegram-bot-api-data:/var/lib/telegram-bot-api \
+  ghcr.io/tdlib/telegram-bot-api:latest --api-id=<API_ID> --api-hash=<API_HASH> --http-port=8081
+```
+Note importanti:
+- Recupera `api_id` e `api_hash` dal tuo account su https://my.telegram.org/apps.
+- Esporre la porta 8081 è solo un esempio: puoi cambiarla, ma dovrai aggiornare `TELEGRAM_BOT_API_BASE_URL` e `TELEGRAM_BOT_API_FILE_URL` di conseguenza.
+- Monta un volume per preservare i dati tra i riavvii (es. `telegram-bot-api-data`).
+
+### Configurazione in `app/config.py`
+1. Imposta `TELEGRAM_BOT_API_ENABLED = True`.
+2. Imposta `TELEGRAM_BOT_API_BASE_URL` con il tuo endpoint `/bot` (es. `http://127.0.0.1:8081/bot`).
+3. Imposta `TELEGRAM_BOT_API_FILE_URL` con l'endpoint `/file/bot` (es. `http://127.0.0.1:8081/file/bot`).
+4. Avvia il bot normalmente (`python -m app.main` o via Docker). Ora il limite attivo sarà ~2 GB (`TELEGRAM_BOT_API_MAX_FILE_SIZE_MB`).
+
+### Comportamento lato bot
+- **Bot API disabilitata (default):** limite 50 MB. Se il file scaricato è più grande, il bot segnala che è stato scaricato ma non può inviarlo per il limite ufficiale.
+- **Bot API abilitata:** limite ~2 GB. Se superi comunque il limite, ricevi il messaggio standard di file troppo grande.
 
 Buon download! 🎬
