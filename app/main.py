@@ -33,9 +33,12 @@ async def run_bot() -> None:
     await application.initialize()
     await application.start()
     await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-    await application.updater.wait_for_stop()
-    await application.stop()
-    await application.shutdown()
+    try:
+        await asyncio.Event().wait()
+    finally:
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
 
 
 async def run_web() -> None:
