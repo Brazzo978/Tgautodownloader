@@ -76,7 +76,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await update.message.reply_text(
                 config.FILE_TOO_LARGE_MESSAGE.format(max_mb=config.MAX_FILE_SIZE_MB)
             )
-            cleanup_file(video_path)
+            if config.DELETE_AFTER_SEND:
+                cleanup_file(video_path)
+            else:
+                logger.info("File conservato perché DELETE_AFTER_SEND=False: %s", video_path)
             await tracker.update(
                 entry_id, status="troppo grande", detail=f"{size_mb:.1f} MB"
             )
@@ -109,7 +112,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 await tracker.update(entry_id, status="errore", detail="Invio fallito")
                 return
         finally:
-            cleanup_file(video_path)
+            if config.DELETE_AFTER_SEND:
+                cleanup_file(video_path)
+            else:
+                logger.info(
+                    "File conservato dopo il download perché DELETE_AFTER_SEND=False: %s",
+                    video_path,
+                )
 
     except Exception:
         logger.exception("Errore generale durante la gestione del messaggio")
