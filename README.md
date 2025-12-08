@@ -9,6 +9,7 @@ Bot Telegram Docker-friendly per scaricare video da link (YouTube, Instagram, Ti
    - Incolla il tuo `BOT_TOKEN` di Telegram.
    - Metti il tuo ID Telegram in `ALLOWED_USER_IDS` (es. `[123456789]`). Solo questi ID potranno usare il bot.
    - (Opzionale) regola `DOWNLOAD_DIR`, `MAX_FILE_SIZE_MB` e la porta web `WEB_APP_PORT`.
+   - (Opzionale) imposta `DELETE_AFTER_SEND` a `True` se vuoi cancellare automaticamente i file locali dopo l'invio.
 4. Scegli come avviarlo:
    - **Locale:** `pip install -r requirements.txt` poi `python -m app.main`.
    - **Docker:** `docker build -t telegram-video-bot .` poi `docker run --rm -p 8000:8000 -v /percorso/locale/downloads:/downloads telegram-video-bot`.
@@ -24,7 +25,8 @@ Bot Telegram Docker-friendly per scaricare video da link (YouTube, Instagram, Ti
    - `BOT_TOKEN = "INSERISCI_QUI_IL_TUO_TOKEN_TELEGRAM"`
    - `ALLOWED_USER_IDS = [123456789]` → metti il tuo ID (puoi aggiungere altri separati da virgola).
 2. Se vuoi cambiare cartella download o porta web, modifica `DOWNLOAD_DIR` e `WEB_APP_PORT` (di default la cartella è `/downloads`).
-3. Salva il file. Non servono `.env` o variabili ambiente: tutto è in `config.py`.
+3. Per controllare se i file scaricati vanno cancellati dopo l'invio, regola `DELETE_AFTER_SEND` (di default è `False`).
+4. Salva il file. Non servono `.env` o variabili ambiente: tutto è in `config.py`.
 
 ### Avvio in locale (senza Docker)
 ```bash
@@ -57,7 +59,7 @@ Il file `docker-compose.yml` monta `./downloads` sulla cartella del container `/
 3. Il bot risponde "Sto scaricando il video" e poi:
    - Se il file è entro `MAX_FILE_SIZE_MB`, ricevi il video (o un documento se l'invio video fallisce).
    - Se supera il limite, ricevi un messaggio di file troppo grande.
-4. I file scaricati vengono eliminati dopo l'invio.
+4. Se `DELETE_AFTER_SEND` è `True`, i file scaricati vengono eliminati dopo l'invio; con `False` rimangono nella cartella download.
 
 ## 4. Web GUI locale
 - Indirizzo: `http://localhost:8000`

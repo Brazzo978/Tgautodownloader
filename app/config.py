@@ -8,6 +8,9 @@ DOWNLOAD_DIR = "/downloads"
 MAX_FILE_SIZE_MB = 45
 LOG_LEVEL = "INFO"
 
+# Controlla se eliminare i file locali dopo l'invio su Telegram
+DELETE_AFTER_SEND = False
+
 # Solo gli ID Telegram indicati qui possono usare il bot (whitelist forte)
 # Puoi ottenere il tuo ID tramite @userinfobot o simili.
 ALLOWED_USER_IDS = [123456789]
