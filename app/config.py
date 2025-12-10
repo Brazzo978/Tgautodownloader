@@ -39,6 +39,10 @@ ERROR_MESSAGE = (
     "❌ Errore durante il download o l'invio del video. "
     "Riprova con un altro link."
 )
+SELF_HOSTED_TIMEOUT_MESSAGE = (
+    "⚠️ Il server Bot API self-hosted sta ancora elaborando il video. "
+    "Attendilo qualche secondo: se non arriva, riprova più tardi."
+)
 FILE_TOO_LARGE_MESSAGE = (
     "❌ Il file scaricato supera il limite di {max_mb} MB e non può essere inviato."
 )
