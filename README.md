@@ -40,14 +40,26 @@ b) python -m app.main
 - La cartella di download viene creata automaticamente se non esiste.
 
 ### Avvio con Docker
+Il bot legge sempre la configurazione da `app/config.py`. Hai due modi per usarla in container:
+
+1. **Includere la config nell'immagine**: modifica `app/config.py` prima del `docker build` (verrà copiato dentro l'immagine).
+2. **Montare la config dal tuo host**: tieni il `config.py` sul tuo PC e montalo in sola lettura nel container, così puoi aggiornarlo senza rebuildare.
+
+Esempi:
 ```bash
+# 1) Build con config già aggiornata
 docker build -t telegram-video-bot .
-# Monta una cartella locale per conservare i download e pubblica la porta web
-docker run --rm -p 8000:8000 -v /percorso/locale/downloads:/downloads telegram-video-bot
+
+# 2) Run riutilizzando il config locale e montando la cartella download
+docker run --rm -p 8000:8000 \
+  -v /percorso/locale/downloads:/downloads \
+  -v /percorso/locale/app/config.py:/app/app/config.py:ro \
+  telegram-video-bot
 ```
 Note:
-- Prima di buildare, assicurati di aver già modificato `app/config.py`.
-- Sostituisci `/percorso/locale/downloads` con una cartella reale del tuo PC.
+- Se preferisci non montare `config.py`, aggiorna il file prima di eseguire il `docker build` e ricostruisci l'immagine quando cambi la configurazione.
+- Sostituisci `/percorso/locale/downloads` con una cartella reale del tuo PC. Se la cartella non esiste verrà creata dal container.
+- Con l'opzione di bind mount su `config.py` puoi cambiare il token o l'ID autorizzato, fermare il container e riavviarlo senza ricostruire l'immagine.
 
 ### Avvio con Docker Compose (opzionale)
 ```bash
