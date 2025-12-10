@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from telegram import Bot
+from telegram.error import TimedOut
 
 from . import config
 from .downloader import cleanup_file, download_video, file_size_mb
@@ -108,14 +109,35 @@ class DownloadQueue:
 
         caption = f"Ecco il tuo video (circa {size_mb:.1f} MB)"
         detail_suffix = f"{size_mb:.1f} MB" + (" (riutilizzato)" if reused else "")
+        send_timeouts = {}
+        if config.TELEGRAM_BOT_API_ENABLED:
+            send_timeouts = {"read_timeout": 120, "write_timeout": 120, "connect_timeout": 30}
+
         try:
             with video_path.open("rb") as file:
                 await self._bot.send_video(
                     chat_id=job.chat_id,
                     video=file,
                     caption=caption,
+                    **send_timeouts,
                 )
             await tracker.update(job.entry_id, status="inviato", detail=detail_suffix)
+        except TimedOut:
+            logger.warning(
+                "Timeout durante l'invio del video con Bot API self-hosted: il file potrebbe "
+                "essere comunque recapitato"
+            )
+            await tracker.update(
+                job.entry_id,
+                status="inviato",  # l'API spesso consegna nonostante il timeout
+                detail=f"{detail_suffix} (timeout lato client)",
+            )
+            if config.TELEGRAM_BOT_API_ENABLED:
+                await self._bot.send_message(
+                    chat_id=job.chat_id,
+                    text=config.SELF_HOSTED_TIMEOUT_MESSAGE,
+                )
+            return
         except Exception:
             logger.exception("Invio video fallito, provo come documento")
             try:
@@ -124,6 +146,7 @@ class DownloadQueue:
                         chat_id=job.chat_id,
                         document=file,
                         caption=caption,
+                        **send_timeouts,
                     )
                 await tracker.update(
                     job.entry_id, status="inviato come documento", detail=detail_suffix
