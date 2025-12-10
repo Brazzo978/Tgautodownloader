@@ -49,6 +49,10 @@ FILE_TOO_LARGE_BOT_API_DISABLED = (
     "per inviare file fino a 2 GB."
 )
 
+FILE_ALREADY_PRESENT_MESSAGE = (
+    "♻️ Il file '{filename}' è già presente sul server. Lo reinvio subito su Telegram."
+)
+
 
 def active_upload_limit_mb() -> int:
     """Restituisce il limite massimo di upload attualmente configurato."""
