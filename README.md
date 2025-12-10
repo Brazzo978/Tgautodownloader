@@ -8,8 +8,8 @@ Bot Telegram Docker-friendly per scaricare video da link (YouTube, Instagram, Ti
 3. Apri `app/config.py` e:
    - Incolla il tuo `BOT_TOKEN` di Telegram.
    - Metti il tuo ID Telegram in `ALLOWED_USER_IDS` (es. `[123456789]`). Solo questi ID potranno usare il bot.
-   - (Opzionale) regola `DOWNLOAD_DIR`, `MAX_FILE_SIZE_MB` e la porta web `WEB_APP_PORT`.
-   - (Opzionale) abilita `TELEGRAM_BOT_API_ENABLED` e imposta `TELEGRAM_BOT_API_BASE_URL`/`TELEGRAM_BOT_API_FILE_URL` se vuoi usare un server Telegram Bot API self-hosted per inviare file fino a 2 GB.
+   - (Opzionale) regola `DOWNLOAD_DIR`, `MAX_UPLOAD_NO_API_MB`, `MAX_UPLOAD_WITH_LOCAL_API_MB`, `MAX_DOWNLOAD_SIZE_MB` e la porta web `WEB_APP_PORT`.
+   - (Opzionale) abilita `TELEGRAM_BOT_API_ENABLED` e imposta `TELEGRAM_BOT_API_BASE_URL`/`TELEGRAM_BOT_API_FILE_URL` se vuoi usare un server Telegram Bot API self-hosted per inviare file fino al limite locale configurato.
    - (Opzionale) imposta `DELETE_AFTER_SEND` a `True` se vuoi cancellare automaticamente i file locali dopo l'invio.
 4. Scegli come avviarlo:
    - **Locale:** `pip install -r requirements.txt` poi `python -m app.main`.
@@ -27,7 +27,7 @@ Bot Telegram Docker-friendly per scaricare video da link (YouTube, Instagram, Ti
    - `ALLOWED_USER_IDS = [123456789]` → metti il tuo ID (puoi aggiungere altri separati da virgola).
 2. Se vuoi cambiare cartella download o porta web, modifica `DOWNLOAD_DIR` e `WEB_APP_PORT` (di default la cartella è `/downloads`).
 3. Per controllare se i file scaricati vanno cancellati dopo l'invio, regola `DELETE_AFTER_SEND` (di default è `False`).
-4. (Opzionale) Per inviare file fino a 2 GB abilita `TELEGRAM_BOT_API_ENABLED = True` e indica le URL del tuo server Bot API (`TELEGRAM_BOT_API_BASE_URL` e `TELEGRAM_BOT_API_FILE_URL`).
+4. (Opzionale) Per inviare file fino a 2 GB abilita `TELEGRAM_BOT_API_ENABLED = True` e indica le URL del tuo server Bot API (`TELEGRAM_BOT_API_BASE_URL` e `TELEGRAM_BOT_API_FILE_URL`). Puoi regolare i limiti di upload via `MAX_UPLOAD_NO_API_MB` (API ufficiale) e `MAX_UPLOAD_WITH_LOCAL_API_MB` (API locale), mentre `MAX_DOWNLOAD_SIZE_MB` impedisce di scaricare file troppo grandi in locale.
 5. Salva il file. Non servono `.env` o variabili ambiente: tutto è in `config.py`.
 
 ### Avvio in locale (senza Docker)
@@ -59,7 +59,7 @@ Il file `docker-compose.yml` monta `./downloads` sulla cartella del container `/
 1. Apri il tuo bot su Telegram e manda `/start` (solo gli ID in whitelist ricevono risposta).
 2. Invia un link a un video (YouTube/Instagram/TikTok/X/Facebook ecc.).
 3. Il bot risponde "Sto scaricando il video" e poi:
-   - Se il file è entro il limite attivo (50 MB con l'API ufficiale, ~2 GB con Bot API self-hosted), ricevi il video (o un documento se l'invio video fallisce).
+   - Se il file è entro il limite attivo (50 MB con l'API ufficiale, ~2 GB con Bot API self-hosted), ricevi il video (o un documento se l'invio video fallisce). Se la dimensione stimata supera `MAX_DOWNLOAD_SIZE_MB`, il download viene bloccato a monte.
    - Se supera il limite, ricevi un messaggio di file troppo grande. Se l'API self-hosted non è configurata, il bot ti dirà che il file è stato scaricato completamente ma non può caricarlo per il limite da 50 MB.
 4. Se `DELETE_AFTER_SEND` è `True`, i file scaricati vengono eliminati dopo l'invio; con `False` rimangono nella cartella download.
 
@@ -99,7 +99,7 @@ Note importanti:
 1. Imposta `TELEGRAM_BOT_API_ENABLED = True`.
 2. Imposta `TELEGRAM_BOT_API_BASE_URL` con il tuo endpoint `/bot` (es. `http://127.0.0.1:8081/bot`).
 3. Imposta `TELEGRAM_BOT_API_FILE_URL` con l'endpoint `/file/bot` (es. `http://127.0.0.1:8081/file/bot`).
-4. Avvia il bot normalmente (`python -m app.main` o via Docker). Ora il limite attivo sarà ~2 GB (`TELEGRAM_BOT_API_MAX_FILE_SIZE_MB`).
+4. Avvia il bot normalmente (`python -m app.main` o via Docker). Ora il limite attivo sarà ~2 GB (configurabile con `MAX_UPLOAD_WITH_LOCAL_API_MB`).
 
 ### Comportamento lato bot
 - **Bot API disabilitata (default):** limite 50 MB. Se il file scaricato è più grande, il bot segnala che è stato scaricato ma non può inviarlo per il limite ufficiale.
