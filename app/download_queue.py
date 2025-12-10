@@ -1,14 +1,13 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 from telegram import Bot
 from telegram.error import TimedOut
 
 from . import config
-from .downloader import cleanup_file, download_video, file_size_mb
+from .downloader import DownloadOutcome, cleanup_file, download_video, file_size_mb
 from .status_tracker import tracker
 
 logger = logging.getLogger(__name__)
@@ -61,11 +60,36 @@ class DownloadQueue:
         await tracker.update(job.entry_id, status="downloading", detail="In corso")
 
         loop = asyncio.get_running_loop()
-        video_path: Optional[Path]
-        reused: bool
-        video_path, reused = await loop.run_in_executor(
-            None, download_video, job.url, config.DOWNLOAD_DIR, job.user_id, job.username
+        outcome: DownloadOutcome = await loop.run_in_executor(
+            None,
+            download_video,
+            job.url,
+            config.DOWNLOAD_DIR,
+            job.user_id,
+            job.username,
+            config.MAX_DOWNLOAD_SIZE_MB,
         )
+
+        if outcome.skipped:
+            estimated = (
+                f"{outcome.estimated_size_mb:.1f} MB"
+                if outcome.estimated_size_mb is not None
+                else "dimensione sconosciuta"
+            )
+            detail = (
+                f"{estimated} oltre il limite di download {config.MAX_DOWNLOAD_SIZE_MB} MB"
+            )
+            await tracker.update(job.entry_id, status="troppo grande", detail=detail)
+            await self._bot.send_message(
+                chat_id=job.chat_id,
+                text=config.FILE_TOO_LARGE_TO_DOWNLOAD_MESSAGE.format(
+                    size_mb=estimated, max_download_mb=config.MAX_DOWNLOAD_SIZE_MB
+                ),
+            )
+            return
+
+        video_path = outcome.path
+        reused = outcome.reused
 
         if not video_path or not video_path.exists():
             await tracker.update(job.entry_id, status="errore", detail="Download fallito")
@@ -84,6 +108,19 @@ class DownloadQueue:
             )
 
         size_mb = file_size_mb(video_path)
+        if size_mb > config.MAX_DOWNLOAD_SIZE_MB:
+            detail = f"{size_mb:.1f} MB oltre il limite di download {config.MAX_DOWNLOAD_SIZE_MB} MB"
+            await tracker.update(job.entry_id, status="troppo grande", detail=detail)
+            await self._bot.send_message(
+                chat_id=job.chat_id,
+                text=config.FILE_TOO_LARGE_TO_DOWNLOAD_MESSAGE.format(
+                    size_mb=f"{size_mb:.1f} MB",
+                    max_download_mb=config.MAX_DOWNLOAD_SIZE_MB,
+                ),
+            )
+            cleanup_file(video_path)
+            return
+
         max_upload_mb = config.active_upload_limit_mb()
         if size_mb > max_upload_mb:
             if config.TELEGRAM_BOT_API_ENABLED:
