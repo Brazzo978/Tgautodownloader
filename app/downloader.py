@@ -89,8 +89,13 @@ def download_video(
                     estimated_size_mb=estimated_size_mb,
                 )
 
-            info = ydl.process_info(info)
-            final_path = Path(ydl.prepare_filename(info))
+            processed_info = ydl.process_info(info)
+            final_info = processed_info or info
+            if final_info is None:
+                logger.error("Informazioni sul download non disponibili dopo process_info")
+                return DownloadOutcome(path=None, reused=False, skipped=False)
+
+            final_path = Path(ydl.prepare_filename(final_info))
             if final_path.suffix != ".mp4" and final_path.with_suffix(".mp4").exists():
                 final_path = final_path.with_suffix(".mp4")
             logger.info("Video scaricato: %s", final_path)
