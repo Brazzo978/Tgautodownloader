@@ -18,6 +18,22 @@ def extract_url(text: Optional[str]) -> Optional[str]:
     return match.group(0) if match else None
 
 
+def extract_mode(text: str) -> str:
+    """Trova tag opzionali nel testo per controllare il comportamento del job."""
+
+    tokens = set(re.findall(r"\b[a-z]{2}\b", text.lower()))
+    has_upload_only = "uo" in tokens
+    has_download_only = "do" in tokens
+
+    if has_upload_only and has_download_only:
+        return "invalid"
+    if has_upload_only:
+        return "upload_only"
+    if has_download_only:
+        return "download_only"
+    return "standard"
+
+
 def is_authorized(update: Update) -> bool:
     user = update.effective_user
     return bool(user and user.id in config.ALLOWED_USER_IDS)
@@ -49,6 +65,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(config.INVALID_URL_MESSAGE)
         return
 
+    mode = extract_mode(update.message.text)
+    if mode == "invalid":
+        await update.message.reply_text(config.MODE_CONFLICT_MESSAGE)
+        return
+
     queued_position = download_queue.pending_jobs() + 1
     entry_id = await tracker.add(
         url=url,
@@ -64,6 +85,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             chat_id=update.effective_chat.id if update.effective_chat else 0,
             user_id=update.effective_user.id if update.effective_user else None,
             username=update.effective_user.username if update.effective_user else None,
+            mode=mode,
         ),
         bot=context.bot,
     )

@@ -63,6 +63,14 @@ FILE_ALREADY_PRESENT_MESSAGE = (
     "♻️ Il file '{filename}' è già presente sul server. Lo reinvio subito su Telegram."
 )
 
+DOWNLOAD_ONLY_MESSAGE = (
+    "✅ Download completato (solo download). File '{filename}' salvato (~{size_mb:.1f} MB{reuse_note})."
+)
+
+MODE_CONFLICT_MESSAGE = (
+    "Per favore usa un solo tag opzionale: UO (upload only) oppure DO (download only)."
+)
+
 
 def active_upload_limit_mb() -> int:
     """Restituisce il limite massimo di upload attualmente configurato."""
