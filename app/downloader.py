@@ -1,4 +1,5 @@
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -13,13 +14,24 @@ def ensure_download_dir(path: str) -> Path:
     return directory
 
 
-def download_video(url: str, download_dir: str) -> Optional[Path]:
+def user_download_dir(base_dir: str, user_id: Optional[int], username: Optional[str]) -> Path:
+    label = username or (str(user_id) if user_id is not None else "anonimo")
+    safe_label = re.sub(r"[^A-Za-z0-9._-]", "_", label) or "utente"
+    return Path(base_dir) / safe_label
+
+
+def download_video(
+    url: str, download_dir: str, user_id: Optional[int] = None, username: Optional[str] = None
+) -> Optional[Path]:
     """
     Scarica il video dall'URL usando yt-dlp nella cartella download_dir.
     Ritorna il percorso completo del file scaricato, oppure None in caso di errore.
     """
 
-    target_dir = ensure_download_dir(download_dir)
+    if user_id is None and username is None:
+        target_dir = ensure_download_dir(download_dir)
+    else:
+        target_dir = ensure_download_dir(user_download_dir(download_dir, user_id, username))
     output_template = str(target_dir / "%(title).80s.%(ext)s")
 
     ydl_opts = {
