@@ -1,7 +1,7 @@
 import logging
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from yt_dlp import YoutubeDL
 
@@ -22,10 +22,12 @@ def user_download_dir(base_dir: str, user_id: Optional[int], username: Optional[
 
 def download_video(
     url: str, download_dir: str, user_id: Optional[int] = None, username: Optional[str] = None
-) -> Optional[Path]:
+) -> Tuple[Optional[Path], bool]:
     """
     Scarica il video dall'URL usando yt-dlp nella cartella download_dir.
-    Ritorna il percorso completo del file scaricato, oppure None in caso di errore.
+    Ritorna una tupla ``(percorso_file, gia_presente)`` dove ``percorso_file`` è il
+    percorso completo del file scaricato (oppure già esistente) e ``gia_presente``
+    indica se il file era già disponibile localmente.
     """
 
     if user_id is None and username is None:
@@ -46,16 +48,25 @@ def download_video(
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+            info = ydl.extract_info(url, download=False)
             downloaded_path = ydl.prepare_filename(info)
             final_path = Path(downloaded_path)
             if final_path.suffix != ".mp4" and final_path.with_suffix(".mp4").exists():
                 final_path = final_path.with_suffix(".mp4")
+
+            if final_path.exists():
+                logger.info("File già presente, salto il download: %s", final_path)
+                return final_path, True
+
+            info = ydl.process_info(info)
+            final_path = Path(ydl.prepare_filename(info))
+            if final_path.suffix != ".mp4" and final_path.with_suffix(".mp4").exists():
+                final_path = final_path.with_suffix(".mp4")
             logger.info("Video scaricato: %s", final_path)
-            return final_path
+            return final_path, False
     except Exception:
         logger.exception("Errore durante il download del video")
-        return None
+        return None, False
 
 
 def file_size_mb(path: Path) -> float:

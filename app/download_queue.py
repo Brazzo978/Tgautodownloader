@@ -60,7 +60,9 @@ class DownloadQueue:
         await tracker.update(job.entry_id, status="downloading", detail="In corso")
 
         loop = asyncio.get_running_loop()
-        video_path: Optional[Path] = await loop.run_in_executor(
+        video_path: Optional[Path]
+        reused: bool
+        video_path, reused = await loop.run_in_executor(
             None, download_video, job.url, config.DOWNLOAD_DIR, job.user_id, job.username
         )
 
@@ -68,6 +70,17 @@ class DownloadQueue:
             await tracker.update(job.entry_id, status="errore", detail="Download fallito")
             await self._bot.send_message(chat_id=job.chat_id, text=config.ERROR_MESSAGE)
             return
+
+        if reused:
+            await tracker.update(
+                job.entry_id,
+                status="downloading",
+                detail=f"File già presente: {video_path.name}",
+            )
+            await self._bot.send_message(
+                chat_id=job.chat_id,
+                text=config.FILE_ALREADY_PRESENT_MESSAGE.format(filename=video_path.name),
+            )
 
         size_mb = file_size_mb(video_path)
         max_upload_mb = config.active_upload_limit_mb()
@@ -94,6 +107,7 @@ class DownloadQueue:
             return
 
         caption = f"Ecco il tuo video (circa {size_mb:.1f} MB)"
+        detail_suffix = f"{size_mb:.1f} MB" + (" (riutilizzato)" if reused else "")
         try:
             with video_path.open("rb") as file:
                 await self._bot.send_video(
@@ -101,7 +115,7 @@ class DownloadQueue:
                     video=file,
                     caption=caption,
                 )
-            await tracker.update(job.entry_id, status="inviato", detail=f"{size_mb:.1f} MB")
+            await tracker.update(job.entry_id, status="inviato", detail=detail_suffix)
         except Exception:
             logger.exception("Invio video fallito, provo come documento")
             try:
@@ -112,7 +126,7 @@ class DownloadQueue:
                         caption=caption,
                     )
                 await tracker.update(
-                    job.entry_id, status="inviato come documento", detail=f"{size_mb:.1f} MB"
+                    job.entry_id, status="inviato come documento", detail=detail_suffix
                 )
             except Exception:
                 logger.exception("Errore durante l'invio del file")
