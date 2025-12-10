@@ -20,6 +20,7 @@ class DownloadJob:
     chat_id: int
     user_id: Optional[int]
     username: Optional[str]
+    mode: str = "standard"
 
 
 class DownloadQueue:
@@ -121,6 +122,18 @@ class DownloadQueue:
             cleanup_file(video_path)
             return
 
+        if job.mode == "download_only":
+            reuse_note = " (riutilizzato)" if reused else ""
+            detail = f"{size_mb:.1f} MB{reuse_note}"
+            await tracker.update(job.entry_id, status="scaricato", detail=detail)
+            await self._bot.send_message(
+                chat_id=job.chat_id,
+                text=config.DOWNLOAD_ONLY_MESSAGE.format(
+                    filename=video_path.name, reuse_note=reuse_note, size_mb=size_mb
+                ),
+            )
+            return
+
         max_upload_mb = config.active_upload_limit_mb()
         if size_mb > max_upload_mb:
             if config.TELEGRAM_BOT_API_ENABLED:
@@ -191,10 +204,11 @@ class DownloadQueue:
             except Exception:
                 logger.exception("Errore durante l'invio del file")
                 await self._bot.send_message(chat_id=job.chat_id, text=config.ERROR_MESSAGE)
-                await tracker.update(job.entry_id, status="errore", detail="Invio fallito")
-                return
+            await tracker.update(job.entry_id, status="errore", detail="Invio fallito")
+            return
         finally:
-            if config.DELETE_AFTER_SEND:
+            delete_after_send = config.DELETE_AFTER_SEND or job.mode == "upload_only"
+            if delete_after_send:
                 cleanup_file(video_path)
             else:
                 logger.info(

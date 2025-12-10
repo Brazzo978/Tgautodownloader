@@ -62,6 +62,9 @@ Il file `docker-compose.yml` monta `./downloads` sulla cartella del container `/
    - Se il file è entro il limite attivo (50 MB con l'API ufficiale, ~2 GB con Bot API self-hosted), ricevi il video (o un documento se l'invio video fallisce). Se la dimensione stimata supera `MAX_DOWNLOAD_SIZE_MB`, il download viene bloccato a monte.
    - Se supera il limite, ricevi un messaggio di file troppo grande. Se l'API self-hosted non è configurata, il bot ti dirà che il file è stato scaricato completamente ma non può caricarlo per il limite da 50 MB.
 4. Se `DELETE_AFTER_SEND` è `True`, i file scaricati vengono eliminati dopo l'invio; con `False` rimangono nella cartella download.
+5. Puoi aggiungere tag opzionali nello stesso messaggio del link:
+   - `UO` (upload only): scarica solo per caricarlo su Telegram e poi elimina il file locale (anche se `DELETE_AFTER_SEND=False`).
+   - `DO` (download only): scarica il file senza inviarlo su Telegram e lo lascia nella cartella download.
 
 ## 4. Web GUI locale
 - Indirizzo: `http://localhost:8000`
