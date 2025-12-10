@@ -1,17 +1,12 @@
-import asyncio
-import logging
 import re
-from pathlib import Path
 from typing import Optional
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from . import config
-from .downloader import cleanup_file, download_video, file_size_mb
+from .download_queue import DownloadJob, download_queue
 from .status_tracker import tracker
-
-logger = logging.getLogger(__name__)
 
 URL_REGEX = re.compile(r"https?://\S+")
 
@@ -37,11 +32,6 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(message)
 
 
-async def _download(url: str) -> Optional[Path]:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, download_video, url, config.DOWNLOAD_DIR)
-
-
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
         return
@@ -50,85 +40,35 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(config.UNAUTHORIZED_MESSAGE)
         return
 
+    if not update.effective_chat:
+        await update.message.reply_text(config.ERROR_MESSAGE)
+        return
+
     url = extract_url(update.message.text)
     if not url:
         await update.message.reply_text(config.INVALID_URL_MESSAGE)
         return
 
-    await update.message.reply_text(config.DOWNLOADING_MESSAGE)
+    queued_position = download_queue.pending_jobs() + 1
     entry_id = await tracker.add(
         url=url,
         user_id=update.effective_user.id if update.effective_user else None,
         username=update.effective_user.username if update.effective_user else None,
-        status="downloading",
-        detail="In corso",
+        status="in coda",
+        detail=f"In attesa (posizione {queued_position})",
+    )
+    await download_queue.enqueue(
+        DownloadJob(
+            entry_id=entry_id,
+            url=url,
+            chat_id=update.effective_chat.id if update.effective_chat else 0,
+            user_id=update.effective_user.id if update.effective_user else None,
+            username=update.effective_user.username if update.effective_user else None,
+        ),
+        bot=context.bot,
     )
 
-    try:
-        video_path = await _download(url)
-        if not video_path or not video_path.exists():
-            await update.message.reply_text(config.ERROR_MESSAGE)
-            await tracker.update(entry_id, status="errore", detail="Download fallito")
-            return
-
-        size_mb = file_size_mb(video_path)
-        max_upload_mb = config.active_upload_limit_mb()
-        if size_mb > max_upload_mb:
-            if config.TELEGRAM_BOT_API_ENABLED:
-                await update.message.reply_text(
-                    config.FILE_TOO_LARGE_MESSAGE.format(max_mb=max_upload_mb)
-                )
-                detail = f"{size_mb:.1f} MB (> {max_upload_mb} MB con Bot API self-hosted)"
-            else:
-                await update.message.reply_text(
-                    config.FILE_TOO_LARGE_BOT_API_DISABLED.format(
-                        size_gb=size_mb / 1024, max_mb=max_upload_mb
-                    )
-                )
-                detail = f"{size_mb:.1f} MB scaricati, limite {max_upload_mb} MB"
-            if config.DELETE_AFTER_SEND:
-                cleanup_file(video_path)
-            else:
-                logger.info("File conservato perché DELETE_AFTER_SEND=False: %s", video_path)
-            await tracker.update(entry_id, status="troppo grande", detail=detail)
-            return
-
-        caption = f"Ecco il tuo video (circa {size_mb:.1f} MB)"
-        try:
-            with video_path.open("rb") as file:
-                await context.bot.send_video(
-                    chat_id=update.effective_chat.id,
-                    video=file,
-                    caption=caption,
-                )
-            await tracker.update(entry_id, status="inviato", detail=f"{size_mb:.1f} MB")
-        except Exception:
-            logger.exception("Invio video fallito, provo come documento")
-            try:
-                with video_path.open("rb") as file:
-                    await context.bot.send_document(
-                        chat_id=update.effective_chat.id,
-                        document=file,
-                        caption=caption,
-                    )
-                await tracker.update(
-                    entry_id, status="inviato come documento", detail=f"{size_mb:.1f} MB"
-                )
-            except Exception:
-                logger.exception("Errore durante l'invio del file")
-                await update.message.reply_text(config.ERROR_MESSAGE)
-                await tracker.update(entry_id, status="errore", detail="Invio fallito")
-                return
-        finally:
-            if config.DELETE_AFTER_SEND:
-                cleanup_file(video_path)
-            else:
-                logger.info(
-                    "File conservato dopo il download perché DELETE_AFTER_SEND=False: %s",
-                    video_path,
-                )
-
-    except Exception:
-        logger.exception("Errore generale durante la gestione del messaggio")
-        await tracker.update(entry_id, status="errore", detail="Eccezione imprevista")
-        await update.message.reply_text(config.ERROR_MESSAGE)
+    reply_message = config.DOWNLOADING_MESSAGE
+    if queued_position > 1:
+        reply_message = f"{config.DOWNLOADING_MESSAGE} (posizione in coda: {queued_position})"
+    await update.message.reply_text(reply_message)
