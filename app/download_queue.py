@@ -12,6 +12,14 @@ from .status_tracker import tracker
 
 logger = logging.getLogger(__name__)
 
+# Fallback per compatibilità con configurazioni personalizzate che potrebbero non
+# avere ancora definito DOWNLOAD_ONLY_MESSAGE.
+DOWNLOAD_ONLY_MESSAGE = getattr(
+    config,
+    "DOWNLOAD_ONLY_MESSAGE",
+    "✅ Download completato (solo download). File '{filename}' salvato (~{size_mb:.1f} MB{reuse_note}).",
+)
+
 
 @dataclass
 class DownloadJob:
@@ -128,7 +136,7 @@ class DownloadQueue:
             await tracker.update(job.entry_id, status="scaricato", detail=detail)
             await self._bot.send_message(
                 chat_id=job.chat_id,
-                text=config.DOWNLOAD_ONLY_MESSAGE.format(
+                text=DOWNLOAD_ONLY_MESSAGE.format(
                     filename=video_path.name, reuse_note=reuse_note, size_mb=size_mb
                 ),
             )
